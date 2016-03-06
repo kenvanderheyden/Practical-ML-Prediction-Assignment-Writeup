@@ -1,0 +1,137 @@
+---
+title: "Coursera - Data Science Track"
+author: "Ken"
+date: "March 4, 2016"
+output: html_document
+---
+
+# Practical Machine Learning 
+
+## Prediction Assignment 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. 
+In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+The model will predict the "classe" of the excercise. 
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+  
+Install the required packages.  
+
+```{r,cache=FALSE, warning = FALSE, message = FALSE, echo=FALSE}
+set.seed(968)
+library(dplyr)
+library(ggplot2)
+library(caret)
+#library(tidyr)
+#library(stringr)
+library(caretEnsemble)
+#library(devtools)
+library(randomForest)
+library(ada)
+#options(width = 100)
+library(doMC)
+registerDoMC(cores = 3)
+```
+  
+### Data Reading
+
+Any data manipulation done on the training data should also be done on the testing data to ensure consistency, so the model is able to make predictions. 
+We will need to read in both the training and testing data.
+Next do our manipulations on the combined set. 
+Before training a model split the sets again. 
+
+```{r,cache=TRUE}
+# set working directory 
+setwd("~/Documents/Machine Learning/practical ml/assignment")
+# Read in the data from the .csv files, avoid converting all Strings to factors.
+trainInput <- read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!"), stringsAsFactors=FALSE)
+testInput <- read.csv("pml-testing.csv", na.strings=c("NA", "#DIV/0!"), stringsAsFactors=FALSE)
+```
+
+### Clean and prepare
+
+```{r,cache=TRUE}
+# Add an empty column for "classe" to the test set
+testInput$classe <- NA
+
+# Add an empry column for "problem_id" to the train set
+trainInput$problem_id <- NA
+
+# Combine the datasets into one large one for consistent data manipulation
+dataset <- rbind(trainInput,testInput)
+
+# Select only the columns with arm, belt or dumbell in their name
+dataset <- select(dataset, matches("arm|belt|dumbell|classe|problem_id"))
+
+# Use only columns without NA values
+featureCols <- c(colnames(dataset[colSums(is.na(dataset)) == 0]), colnames(dataset[115:116]))
+myFeatures <- dataset[featureCols]
+
+# Filter out the records with missing values
+myFeatures %>% filter(complete.cases(.))
+```
+
+### Spliting data
+
+Split the dataset in a training and validation set.
+
+```{r, cache=TRUE}
+# Partition into training and validation sets:
+inTrain <- createDataPartition(y = myFeatures$classe, p = 0.6, list = FALSE)
+
+training <- myFeatures[inTrain,]
+validation <- myFeatures[-inTrain,]
+
+```
+
+### Fit
+
+Started with one model (random forests). 
+Due to limited time, no extra models where developed and trained. 
+
+```{r,cache=TRUE,message=FALSE}
+# Model: Random Forests
+modelRF <- train(as.factor(classe)~., data = training[1:40],  
+                  method = "rf", na.action = na.omit, 
+#                  preProcess = c("center", "scale"),
+                  trControl = trainControl(method = "cv"),
+                  allowParallel = TRUE)
+
+print(modelRF)
+```
+
+### Predict 
+
+```{r,cache=TRUE,message=FALSE}
+# Model: Random Forests
+
+# get the test set back
+testing <- myFeatures %>% filter(is.na(myFeatures$problem_id) == FALSE)
+
+# and predict 
+predictionsRF <- predict(modelRF, testing)
+print(predictionsRF)
+
+#extractPrediction(predictionsRF, testing)
+
+```
+
+### Evaluate
+
+Using confusion matrices for evaluation
+  
+```{r,cache=TRUE}
+# Model 1
+#confusionMatrix(predictionsRF, testing$classe)
+```
+
+### Variable Importance Plot
+
+```{r,cache=TRUE,fig.cap="Variable importance plot, illustrating the importance of each variable in partitioning the data into the defined classes. Variables to the upper right-side are more important when splitting the data, while the bottom left-side of the plot contains less important variables that are still in the final model."}
+varImpPlot(modelRF$finalModel,main="Variable Importance Plot",pch=19)
+title(xlab="Variable Importance for Data Partitioning\n")
+
+# feature plot
+#featurePlot(x=training[,.],y = training$classe,plot="pairs")
+```
+

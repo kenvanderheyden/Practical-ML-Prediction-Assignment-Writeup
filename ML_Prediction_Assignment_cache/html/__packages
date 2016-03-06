@@ -1,0 +1,16 @@
+base
+dplyr
+ggplot2
+lattice
+caret
+tidyr
+stringr
+caretEnsemble
+devtools
+alluvial
+randomForest
+rpart
+ada
+foreach
+iterators
+doMC
