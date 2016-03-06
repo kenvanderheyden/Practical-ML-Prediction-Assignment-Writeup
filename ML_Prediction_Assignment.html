@@ -76,15 +76,19 @@ img {
 <p>Install the required packages.</p>
 <div id="data-reading" class="section level3">
 <h3>Data Reading</h3>
-<p>Any data manipulation done on the training data should also be done on the testing data to ensure consistency, so the model is able to make predictions. We will need to read in both the training and testing data. Next do our manipulations on the combined set. Before training a model split the sets again.</p>
+<p>Any data manipulation done on the training data should also be done on the testing data to ensure consistency, so the model is able to make predictions. Read in both the training and testing data.</p>
 <pre class="r"><code># set working directory 
 setwd(&quot;~/Documents/Machine Learning/practical ml/assignment&quot;)
+
 # Read in the data from the .csv files, avoid converting all Strings to factors.
+# Also set the NA strings for some strange looking items found in the data.
 trainInput &lt;- read.csv(&quot;pml-training.csv&quot;, na.strings=c(&quot;NA&quot;, &quot;#DIV/0!&quot;), stringsAsFactors=FALSE)
 testInput &lt;- read.csv(&quot;pml-testing.csv&quot;, na.strings=c(&quot;NA&quot;, &quot;#DIV/0!&quot;), stringsAsFactors=FALSE)</code></pre>
 </div>
 <div id="clean-and-prepare" class="section level3">
 <h3>Clean and prepare</h3>
+<p>Merge test and train sets. For this to work the sets need the same columns, so that gets fixed first. Next use only the useful columns as described in the course. And use rows that are complete (no missing data).</p>
+<p>The result is only numeric values, so no need to fix that. Character vectors would be less ideal for a machine learning algorithm.</p>
 <pre class="r"><code># Add an empty column for &quot;classe&quot; to the test set
 testInput$classe &lt;- NA
 
@@ -130,11 +134,10 @@ validation &lt;- myFeatures[-inTrain,]</code></pre>
 </div>
 <div id="fit" class="section level3">
 <h3>Fit</h3>
-<p>Started with one model (random forests). Due to limited time, no extra models where developed and trained.</p>
+<p>Started with one model (random forests). Due to limited time, no extra models where developed and trained. I would have liked to add a Ada boost, and create an ensemble of RF and Ada. But results of the RF are good, and time limited.</p>
 <pre class="r"><code># Model: Random Forests
 modelRF &lt;- train(as.factor(classe)~., data = training[1:40],  
                   method = &quot;rf&quot;, na.action = na.omit, 
-#                  preProcess = c(&quot;center&quot;, &quot;scale&quot;),
                   trControl = trainControl(method = &quot;cv&quot;),
                   allowParallel = TRUE)
 
@@ -160,9 +163,8 @@ print(modelRF)</code></pre>
 </div>
 <div id="predict" class="section level3">
 <h3>Predict</h3>
-<pre class="r"><code># Model: Random Forests
-
-# get the test set back
+<p>Run the trained model on the test data.</p>
+<pre class="r"><code># Get the test set back
 testing &lt;- myFeatures %&gt;% filter(is.na(myFeatures$problem_id) == FALSE)
 
 # and predict 
@@ -176,7 +178,39 @@ print(predictionsRF)</code></pre>
 <h3>Evaluate</h3>
 <p>Using confusion matrices for evaluation</p>
 <pre class="r"><code># Model 1
-#confusionMatrix(predictionsRF, testing$classe)</code></pre>
+validateRF &lt;- predict(modelRF, validation)
+confusionMatrix(validateRF, validation$classe)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2230    8    1    0    0
+##          B    2 1505   18    3    1
+##          C    0    5 1335   31    2
+##          D    0    0   12 1251    2
+##          E    0    0    2    1 1437
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.9888         
+##                  95% CI : (0.9862, 0.991)
+##     No Information Rate : 0.2845         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.9858         
+##  Mcnemar's Test P-Value : NA             
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9991   0.9914   0.9759   0.9728   0.9965
+## Specificity            0.9984   0.9962   0.9941   0.9979   0.9995
+## Pos Pred Value         0.9960   0.9843   0.9723   0.9889   0.9979
+## Neg Pred Value         0.9996   0.9979   0.9949   0.9947   0.9992
+## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2842   0.1918   0.1702   0.1594   0.1832
+## Detection Prevalence   0.2854   0.1949   0.1750   0.1612   0.1835
+## Balanced Accuracy      0.9988   0.9938   0.9850   0.9853   0.9980</code></pre>
 </div>
 <div id="variable-importance-plot" class="section level3">
 <h3>Variable Importance Plot</h3>

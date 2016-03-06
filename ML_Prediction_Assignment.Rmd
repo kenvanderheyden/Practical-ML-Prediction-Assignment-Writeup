@@ -22,13 +22,9 @@ set.seed(968)
 library(dplyr)
 library(ggplot2)
 library(caret)
-#library(tidyr)
-#library(stringr)
 library(caretEnsemble)
-#library(devtools)
 library(randomForest)
 library(ada)
-#options(width = 100)
 library(doMC)
 registerDoMC(cores = 3)
 ```
@@ -36,19 +32,27 @@ registerDoMC(cores = 3)
 ### Data Reading
 
 Any data manipulation done on the training data should also be done on the testing data to ensure consistency, so the model is able to make predictions. 
-We will need to read in both the training and testing data.
-Next do our manipulations on the combined set. 
-Before training a model split the sets again. 
+Read in both the training and testing data.
 
 ```{r,cache=TRUE}
 # set working directory 
 setwd("~/Documents/Machine Learning/practical ml/assignment")
+
 # Read in the data from the .csv files, avoid converting all Strings to factors.
+# Also set the NA strings for some strange looking items found in the data.
 trainInput <- read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!"), stringsAsFactors=FALSE)
 testInput <- read.csv("pml-testing.csv", na.strings=c("NA", "#DIV/0!"), stringsAsFactors=FALSE)
 ```
 
 ### Clean and prepare
+
+Merge test and train sets. 
+For this to work the sets need the same columns, so that gets fixed first. 
+Next use only the useful columns as described in the course. 
+And use rows that are complete (no missing data). 
+
+The result is only numeric values, so no need to fix that. 
+Character vectors would be less ideal for a machine learning algorithm. 
 
 ```{r,cache=TRUE}
 # Add an empty column for "classe" to the test set
@@ -88,24 +92,29 @@ validation <- myFeatures[-inTrain,]
 
 Started with one model (random forests). 
 Due to limited time, no extra models where developed and trained. 
+I would have liked to add a Ada boost, and create an ensemble of RF and Ada. 
+But results of the RF are good, and time limited. 
 
 ```{r,cache=TRUE,message=FALSE}
 # Model: Random Forests
+# using cross validation resampling. 
+
 modelRF <- train(as.factor(classe)~., data = training[1:40],  
                   method = "rf", na.action = na.omit, 
-#                  preProcess = c("center", "scale"),
                   trControl = trainControl(method = "cv"),
                   allowParallel = TRUE)
 
 print(modelRF)
 ```
 
+Seems like a good model, with an accuracy of 98%.
+
 ### Predict 
 
-```{r,cache=TRUE,message=FALSE}
-# Model: Random Forests
+Run the trained model on the test data. 
 
-# get the test set back
+```{r,cache=TRUE,message=FALSE}
+# Get the test set back
 testing <- myFeatures %>% filter(is.na(myFeatures$problem_id) == FALSE)
 
 # and predict 
@@ -122,7 +131,8 @@ Using confusion matrices for evaluation
   
 ```{r,cache=TRUE}
 # Model 1
-#confusionMatrix(predictionsRF, testing$classe)
+validateRF <- predict(modelRF, validation)
+confusionMatrix(validateRF, validation$classe)
 ```
 
 ### Variable Importance Plot
@@ -130,8 +140,4 @@ Using confusion matrices for evaluation
 ```{r,cache=TRUE,fig.cap="Variable importance plot, illustrating the importance of each variable in partitioning the data into the defined classes. Variables to the upper right-side are more important when splitting the data, while the bottom left-side of the plot contains less important variables that are still in the final model."}
 varImpPlot(modelRF$finalModel,main="Variable Importance Plot",pch=19)
 title(xlab="Variable Importance for Data Partitioning\n")
-
-# feature plot
-#featurePlot(x=training[,.],y = training$classe,plot="pairs")
 ```
-
